@@ -1,0 +1,22 @@
+# 项目级镜像配置（不影响全局 ~/.cargo/config.toml）
+#
+# 起因：本机直连 crates.io 时，index.crates.io 可达但 static.crates.io
+# （实际存放 .crate 包的主机）超时，导致 cargo 读得到索引却下不动包，
+# 表现为进程挂着、CPU 为零、target/ 迟迟不生成。
+#
+# rsproxy.cn 是字节跳动维护的公开 Rust 镜像。不需要时删掉本文件即可恢复直连。
+
+[source.crates-io]
+replace-with = "rsproxy-sparse"
+
+[source.rsproxy]
+registry = "https://rsproxy.cn/crates.io-index"
+
+[source.rsproxy-sparse]
+registry = "sparse+https://rsproxy.cn/index/"
+
+[registries.rsproxy]
+index = "https://rsproxy.cn/crates.io-index"
+
+[net]
+git-fetch-with-cli = true

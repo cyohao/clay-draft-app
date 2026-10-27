@@ -1,0 +1,197 @@
+/* ============================================================
+   app.css —— 界面外壳
+   基础重置、顶栏、工具栏、窗格与分隔条、源码区、目录栏
+   ============================================================ */
+::selection{background:var(--sel);color:var(--ink)}
+#src::selection{background:var(--sel);color:var(--ink)}
+html,body{height:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+
+.app{height:100%;display:flex;flex-direction:column;background:var(--paper)}
+
+.bar{
+  flex:0 0 auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:10px 16px;background:var(--paper);border-bottom:1px solid var(--line);
+}
+.brand{display:flex;align-items:baseline;gap:8px}
+.brand b{font-family:var(--serif);font-weight:500;font-size:19px;letter-spacing:.01em}
+.brand span{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
+
+.filegroup{display:flex;align-items:center;gap:4px}
+.status .file{max-width:40ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.status .file.dirty::after{content:"  CF";color:var(--clay)}
+.tools{display:flex;align-items:center;gap:2px;flex-wrap:wrap}
+.tools .sep{width:1px;height:18px;background:var(--line);margin:0 6px}
+.tb{
+  min-width:30px;height:30px;padding:0 8px;border:0;background:transparent;border-radius:6px;
+  font-size:13px;color:var(--ink-soft);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
+  transition:background .12s ease,color .12s ease;
+}
+.tb:hover{background:var(--rail);color:var(--ink)}
+.tb b{font-weight:700}
+.tb i{font-family:var(--serif);font-style:italic;font-size:15px}
+.tb.mono{font-family:var(--mono);font-size:12px}
+
+.spacer{flex:1 1 auto}
+
+/* ---------- 标签条 ----------
+   活动标签与下方窗格连成一片（底边压在 border 上、top:1px），
+   非活动的是平的——不靠颜色深浅，靠"有没有底座"区分，深浅色下都成立。 */
+.tabbar{
+  flex:0 0 auto;display:flex;align-items:stretch;gap:6px;
+  padding:0 12px;background:var(--paper);border-bottom:1px solid var(--line);
+}
+.tabs{display:flex;align-items:stretch;gap:2px;min-width:0;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{height:0}
+.tab{
+  position:relative;top:1px;display:flex;align-items:center;gap:6px;
+  min-width:0;max-width:24ch;height:31px;padding:0 6px 0 11px;
+  border:1px solid transparent;border-bottom:0;border-radius:7px 7px 0 0;
+  font-size:12.5px;color:var(--ink-faint);white-space:nowrap;cursor:default;
+  transition:background .12s ease,color .12s ease;
+}
+.tab:hover{background:var(--rail);color:var(--ink-soft)}
+.tab.active{background:var(--surface);border-color:var(--line);color:var(--ink)}
+.tab-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* 会话恢复出来但还没读盘的标签 */
+.tab.pending .tab-name{opacity:.5;font-style:italic}
+.tab.dirty .tab-name::after{
+  content:"\25cf";color:var(--clay);font-size:9px;margin-left:5px;vertical-align:middle;
+}
+.tab-x{
+  flex:0 0 auto;width:18px;height:18px;padding:0;border:0;border-radius:5px;
+  background:transparent;color:var(--ink-faint);cursor:pointer;opacity:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  transition:background .12s ease,color .12s ease,opacity .12s ease;
+}
+.tab:hover .tab-x,.tab.active .tab-x{opacity:1}
+.tab-x:hover{background:var(--line);color:var(--ink)}
+/* 只剩一个标签时不给关闭钮——按 Ctrl+W 仍然可以关，只是不容易误点 */
+.tabbar.single .tab-x{display:none}
+.tab-new{
+  flex:0 0 auto;align-self:center;width:26px;height:26px;padding:0;border:0;border-radius:6px;
+  background:transparent;color:var(--ink-faint);font-size:17px;line-height:1;cursor:pointer;
+  transition:background .12s ease,color .12s ease;
+}
+.tab-new:hover{background:var(--rail);color:var(--ink)}
+
+.act{
+  height:30px;padding:0 12px;border:1px solid var(--line);background:var(--surface);border-radius:7px;
+  font-size:12.5px;color:var(--ink-soft);cursor:pointer;white-space:nowrap;
+  transition:border-color .12s ease,color .12s ease;
+}
+.act:hover{border-color:var(--clay);color:var(--ink)}
+.act.primary{background:var(--clay);border-color:var(--clay);color:#fff;font-weight:500}
+.act.primary:hover{filter:brightness(1.06);color:#fff}
+.act.icon{padding:0;width:30px;display:inline-flex;align-items:center;justify-content:center}
+
+.panetoggles{display:flex;background:var(--rail);border-radius:8px;padding:2px;gap:2px}
+.pt{
+  border:0;background:transparent;border-radius:6px;height:26px;padding:0 13px;
+  font-family:var(--sans-label);font-weight:700;font-size:12.5px;letter-spacing:.02em;
+  color:var(--ink-faint);cursor:pointer;transition:background .12s ease,color .12s ease;
+}
+.pt:hover{color:var(--ink-soft)}
+.pt[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(20,20,19,.06)}
+
+/* 窗格开关：关掉一栏，另一栏独占整行（分隔条一并隐藏） */
+.app.hide-edit .pane-edit,.app.hide-view .pane-view{display:none}
+.app.hide-edit .split,.app.hide-view .split{display:none}
+.app.hide-edit .panes,.app.hide-view .panes{grid-template-columns:1fr}
+
+.panes{
+  flex:1 1 auto;min-height:0;display:grid;
+  grid-template-columns:var(--split) 9px 1fr;
+}
+.pane{min-width:0;min-height:0;overflow:auto;background:var(--surface)}
+.pane-edit{background:var(--rail)}
+/* 预览侧改为「目录栏 + 滚动区」两列：目录自身不随正文滚动，
+   有独立滚动条；正文区 flex:1 自动吃掉剩余宽度，目录一开合就重排。 */
+.pane-view{display:flex;overflow:hidden;position:relative}
+.pane-scroll{flex:1 1 auto;min-width:0;overflow:auto}
+
+.split{
+  background:var(--paper);border-left:1px solid var(--line);border-right:1px solid var(--line);
+  cursor:col-resize;position:relative;
+}
+.split::after{
+  content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:1px;height:26px;background:var(--line);border-radius:1px;
+}
+.split:hover::after{background:var(--clay)}
+
+#src{
+  display:block;width:100%;min-height:100%;border:0;resize:none;outline:none;
+  background:transparent;color:var(--ink);
+  font-family:var(--mono);font-size:13.5px;line-height:1.85;
+  padding:28px 26px 60vh;
+  tab-size:2;
+}
+#src::placeholder{color:var(--ink-faint)}
+
+/* ---------- 目录 ---------- */
+.toc{
+  flex:0 0 auto;width:var(--toc-w);position:relative;
+  display:flex;flex-direction:column;overflow:hidden;
+  background:var(--surface);border-right:1px solid var(--line-soft);
+  transition:width .18s ease;
+}
+.toc.collapsed{width:38px}
+/* 拖拽调宽时关掉过渡，否则宽度会追着鼠标迟滞一拍 */
+.toc.dragging{transition:none}
+.toc-resize{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize;z-index:9}
+.toc-resize::after{
+  content:"";position:absolute;top:0;right:0;width:2px;height:100%;
+  background:transparent;transition:background .12s ease;
+}
+.toc-resize:hover::after,.toc.dragging .toc-resize::after{background:var(--clay)}
+.toc.collapsed .toc-resize{display:none}
+.toc-head{
+  flex:0 0 auto;display:flex;align-items:center;gap:8px;width:100%;
+  padding:11px 14px;border:0;background:transparent;cursor:pointer;
+  font-family:var(--sans-label);font-size:11.5px;letter-spacing:.1em;
+  color:var(--ink-faint);transition:color .12s ease;
+}
+.toc-head:hover{color:var(--ink-soft)}
+/* 收起后只剩 38px 窄条：标题竖排，正好利用中文可竖读的特性 */
+.toc.collapsed .toc-head{flex-direction:column;padding:11px 0;gap:10px}
+.toc.collapsed .toc-label{writing-mode:vertical-rl;letter-spacing:.18em}
+.toc.collapsed .toc-count{margin-left:0;padding:1px 5px}
+/* 箭头一律「默认朝右、展开时转 90°」，两级折叠的指向语义保持一致 */
+.toc-chev{display:inline-flex;align-items:center;color:var(--clay);transition:transform .15s ease}
+.toc:not(.collapsed) .toc-chev{transform:rotate(90deg)}
+.toc-count{
+  margin-left:auto;background:var(--rail);border-radius:999px;
+  padding:1px 8px;font-size:10.5px;font-variant-numeric:tabular-nums;letter-spacing:0;
+}
+.toc-body{flex:1 1 auto;min-height:0;overflow:auto;padding:0 12px 16px}
+.toc.collapsed .toc-body{display:none}
+.toc-empty{margin:0 0 8px;font-size:12px;line-height:1.7;color:var(--ink-faint)}
+
+.toc-list{list-style:none;margin:0;padding:0}
+.toc-list .toc-list{padding-left:15px;border-left:1px solid var(--line-soft);margin-left:7px}
+.toc-row{display:flex;align-items:flex-start;gap:3px}
+.toc-tg{
+  flex:0 0 auto;width:22px;height:24px;padding:0;border:0;border-radius:5px;
+  background:transparent;color:var(--ink-faint);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+  transition:transform .15s ease,color .12s ease,background .12s ease;
+}
+.toc-tg:hover{color:var(--clay);background:var(--rail)}
+.toc-tg[aria-expanded="true"]{transform:rotate(90deg)}
+.toc-tg.empty{cursor:default}
+.toc-link{
+  flex:1 1 auto;min-width:0;padding:2px 7px;border:0;border-radius:5px;background:transparent;
+  font-family:var(--sans);font-size:12.5px;line-height:1.55;color:var(--ink-soft);
+  text-align:left;cursor:pointer;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  transition:background .12s ease,color .12s ease;
+}
+.toc-link:hover{background:var(--rail);color:var(--ink)}
+.toc-item.lv1>.toc-row>.toc-link{font-weight:700;color:var(--ink)}
+.toc-item.lv2>.toc-row>.toc-link{color:var(--ink)}
+/* 选择器必须凑到 (0,4,0) 才压得住上面 lv1/lv2 那两条同特异性规则——
+   靠源顺序在后取胜。写成 .toc-link.active (0,2,0) 是压不住的。 */
+.toc-item>.toc-row>.toc-link.active{color:var(--clay);background:var(--rail);font-weight:700}

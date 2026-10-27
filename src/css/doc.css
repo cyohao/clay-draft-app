@@ -1,0 +1,176 @@
+/* ============================================================
+   doc.css —— 预览正文与状态栏
+   排版、代码块与 Prism token、表格、图片与灯箱、状态栏、toast
+   ============================================================ */
+.doc{
+  /* 与左侧编辑区同款边距：满宽铺开，不做定宽居中。
+     行长由中间的分隔条控制——拖窄面板即收窄行长。 */
+  padding:28px 26px 60vh;
+  font-size:15px;line-height:1.85;color:var(--ink);
+  overflow-wrap:break-word;
+}
+.doc>*:first-child{margin-top:0}
+.doc h1,.doc h2{font-family:var(--serif);font-weight:500;letter-spacing:.005em;text-wrap:balance;color:var(--ink)}
+.doc h1{font-size:30px;line-height:1.3;margin:0 0 .5em}
+.doc h2{font-size:22px;line-height:1.35;margin:2em 0 .6em;padding-bottom:.35em;border-bottom:1px solid var(--line-soft)}
+/* 微软雅黑只有 Regular / Bold 两档，无 Medium。故小标题用 700 走真实 Bold，
+   若写 500 会回落成 Regular，与正文同重、层次消失。 */
+.doc h3{font-family:var(--sans-label);font-size:15.5px;font-weight:700;margin:1.8em 0 .5em;text-wrap:balance;letter-spacing:.01em}
+.doc h4{font-family:var(--sans-label);font-size:14px;font-weight:700;color:var(--ink-soft);margin:1.6em 0 .4em;letter-spacing:.01em}
+.doc p{margin:0 0 1.1em}
+.doc a{color:var(--clay);text-underline-offset:3px;text-decoration-thickness:1px}
+/* 指向同目录 .md 的相对链接：点了在新标签里打开，不是跳出去。
+   用虚线下划线和小角标与外链区分——不额外占一行，扫一眼能认出来。 */
+.doc a.doclink{text-decoration-style:dotted;cursor:pointer}
+.doc a.doclink::after{
+  content:"\2197";font-size:.78em;margin-left:2px;vertical-align:.12em;color:var(--ink-faint);
+}
+.doc a.doclink:hover{text-decoration-style:solid}
+.doc a.doclink:hover::after{color:var(--clay)}
+.doc strong{font-weight:700}
+.doc em{font-family:var(--serif);font-style:italic}
+.doc ul,.doc ol{margin:0 0 1.1em;padding-left:1.4em}
+.doc li{margin:.3em 0}
+.doc li::marker{color:var(--ink-faint)}
+.doc blockquote{
+  margin:1.3em 0;padding:.2em 0 .2em 1.1em;border-left:2px solid var(--clay);
+  color:var(--ink-soft);
+}
+.doc blockquote p:last-child{margin-bottom:0}
+.doc hr{border:0;border-top:1px solid var(--line);margin:2.2em 0}
+.doc code{
+  font-family:var(--mono);font-size:.86em;background:var(--code-bg);
+  padding:.15em .38em;border-radius:4px;color:var(--ink);
+}
+.doc pre{
+  background:var(--rail);border:1px solid var(--line-soft);border-radius:9px;
+  padding:14px 16px;margin:1.3em 0;overflow-x:auto;
+}
+/* 按钮挂在外层而不是 pre 里：pre 自己会横向滚动，
+   按钮若是它的子元素，代码一宽就跟着内容滚走了。
+   这跟 .tablewrap 是同一个套路。 */
+.codewrap{position:relative}
+
+/* mermaid 渲染出来的图。横向留 auto 是因为宽流程图缩到 100% 会糊成一团，
+   宁可让它横向滚动也别缩。 */
+/* 原地编辑器：盖在原元素位置上，字体沿用被编辑的元素，视觉上不跳 */
+.inline-edit{
+  display:block;width:100%;box-sizing:border-box;margin:0 0 .6em;
+  border:1px solid var(--clay);border-radius:8px;padding:6px 10px;
+  background:var(--surface);color:var(--ink);
+  outline:none;resize:none;overflow:hidden;
+}
+.inline-edit.code{
+  font-family:var(--mono);font-size:12.8px;line-height:1.7;
+  background:var(--rail);padding:12px 14px;
+}
+
+.mermaid-box{margin:1.3em 0;text-align:center;overflow-x:auto}
+.mermaid-box svg{max-width:100%;height:auto}
+/* 连线上的分支标签（是/否）：全图唯一的彩色。它出现得最少，所以由它来跳。
+   mermaid 没给这个位置单独的主题变量，只能覆盖生成后的节点。 */
+.mermaid-box .edgeLabel,.mermaid-box .edgeLabel p,.mermaid-box .edgeLabel span{
+  color:var(--clay)!important;background:var(--paper)!important;
+}
+.mermaid-err{
+  margin:1.3em 0 .5em;padding:10px 14px;border-radius:8px;
+  border:1px solid var(--clay);background:var(--code-bg);
+  font-size:12.5px;line-height:1.6;color:var(--ink-soft);
+}
+.mermaid-err b{color:var(--clay);font-weight:700}
+/* 代码块右上角的复制按钮。平时隐形，鼠标移到代码块上才浮现——
+   常驻会在满屏代码的文稿里变成视觉噪音。 */
+.code-tools{
+  position:absolute;top:8px;right:8px;display:flex;gap:5px;
+  opacity:0;transition:opacity .12s ease;
+}
+.codewrap:hover .code-tools,.code-tools:focus-within{opacity:1}
+/* 触屏没有 hover 这一说，不常驻就永远点不到 */
+@media (hover:none){.code-tools{opacity:1}}
+.code-btn{
+  width:28px;height:28px;padding:0;
+  border:1px solid var(--line-soft);border-radius:6px;
+  background:var(--surface);color:var(--ink-faint);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+  transition:color .12s ease,border-color .12s ease;
+}
+.code-btn:hover{color:var(--ink);border-color:var(--clay)}
+.code-btn.ok{color:var(--clay);border-color:var(--clay)}
+.doc pre code{background:none;padding:0;font-size:12.8px;line-height:1.7;display:block}
+/* Prism 的 token 分类映射到项目色板。不引入 Prism 自带主题——
+   那些配色是按各自的设计体系调的，混进来就是第二套色板。 */
+.doc pre code .token.comment,.doc pre code .token.prolog,
+.doc pre code .token.doctype,.doc pre code .token.cdata{color:var(--syn-comment);font-style:italic}
+.doc pre code .token.punctuation,.doc pre code .token.operator,
+.doc pre code .token.entity,.doc pre code .token.url{color:var(--syn-op)}
+.doc pre code .token.property,.doc pre code .token.tag,.doc pre code .token.symbol,
+.doc pre code .token.attr-name,.doc pre code .token.deleted{color:var(--syn-prop)}
+.doc pre code .token.boolean,.doc pre code .token.number,
+.doc pre code .token.constant{color:var(--syn-num)}
+.doc pre code .token.string,.doc pre code .token.char,.doc pre code .token.attr-value,
+.doc pre code .token.builtin,.doc pre code .token.inserted,
+.doc pre code .token.selector{color:var(--syn-str)}
+.doc pre code .token.atrule,.doc pre code .token.keyword,
+.doc pre code .token.important{color:var(--syn-key);font-weight:700}
+.doc pre code .token.function,.doc pre code .token.class-name,
+.doc pre code .token.regex,.doc pre code .token.variable{color:var(--syn-fn)}
+
+.tablewrap{overflow-x:auto;margin:1.3em 0}
+.doc table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+.doc th,.doc td{padding:.55em .8em;border-bottom:1px solid var(--line-soft);text-align:left;vertical-align:top}
+.doc th{font-family:var(--sans-label);font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);border-bottom:1px solid var(--line)}
+.doc tbody tr:last-child td{border-bottom:0}
+.doc img{max-width:100%;border-radius:8px}
+/* 图片外面套一层，给拖拽手柄提供定位基准 */
+.imgwrap{position:relative;display:inline-block;max-width:100%;vertical-align:top;line-height:0}
+.imgwrap img{display:block;cursor:zoom-in}
+.img-handle{
+  position:absolute;right:0;bottom:0;width:18px;height:18px;
+  background:var(--clay);border-radius:4px 0 8px 0;cursor:nwse-resize;
+  opacity:0;transition:opacity .12s ease;
+}
+.imgwrap:hover .img-handle,.imgwrap.resizing .img-handle{opacity:.9}
+@media (hover:none){.img-handle{opacity:.9}}
+/* 拖拽时把当前宽度标出来，不然只能凭感觉 */
+.img-size{
+  position:absolute;left:8px;bottom:8px;padding:2px 8px;border-radius:999px;
+  background:var(--ink);color:var(--paper);font-size:11px;line-height:1.6;
+  opacity:0;pointer-events:none;transition:opacity .12s ease;
+}
+.imgwrap.resizing .img-size{opacity:.92}
+
+/* 点击放大 */
+.lightbox{
+  position:fixed;inset:0;z-index:50;padding:28px;
+  background:rgba(20,20,19,.88);cursor:zoom-out;
+  display:flex;align-items:center;justify-content:center;
+}
+.lightbox img{max-width:100%;max-height:100%;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,.5)}
+/* 图片文件找不到时给个明确的提示框，而不是一个破图标 */
+.doc img[data-missing]{
+  min-width:160px;min-height:48px;padding:10px 14px;border-radius:8px;
+  border:1px dashed var(--clay);background:var(--code-bg);
+  font-size:12.5px;color:var(--ink-soft);
+}
+
+.status{
+  flex:0 0 auto;display:flex;align-items:center;flex-wrap:wrap;
+  padding:7px 16px;background:var(--paper);border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--ink-faint);font-variant-numeric:tabular-nums;
+}
+.status .item{padding:0 11px;border-right:1px solid var(--line)}
+.status .item:first-child{padding-left:0}
+.status .item:last-child{border-right:0}
+.status b{font-weight:500;color:var(--ink-soft)}
+.status .count{color:var(--clay);font-weight:500}
+.status .grow{flex:1 1 auto}
+.saved{display:inline-flex;align-items:center;gap:5px}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--clay);opacity:.35}
+.dot.on{opacity:1}
+
+.toast{
+  position:fixed;left:50%;bottom:calc(46px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(8px);
+  background:var(--ink);color:var(--paper);padding:8px 16px;border-radius:999px;font-size:12.5px;
+  opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease;z-index:20;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}

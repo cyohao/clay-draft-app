@@ -1,0 +1,61 @@
+/* ============================================================
+   media.css —— 各种 @media
+   窄屏响应式、打印版面与分页、减少动效。
+   打印用的调色板不在这里，在 tokens.css
+   ============================================================ */
+@media (max-width:820px){
+  .split{display:none}
+  .panes{grid-template-columns:1fr}
+  /* 窄屏一次只容得下一栏：预览开着时编辑自动让位，
+     两个开关因此在窄屏上表现为互斥，不必另设一套标签页 */
+  .app:not(.hide-view) .pane-edit{display:none}
+  .tools{order:3;width:100%;padding-top:2px}
+  .doc,#src{padding:22px 16px 50vh}
+  /* 窄屏宽度紧张，目录改为浮层覆盖，不再挤压正文 */
+  .toc{position:absolute;top:0;bottom:0;left:0;z-index:8;
+       box-shadow:8px 0 24px rgba(20,20,19,.14)}
+  .toc.collapsed{box-shadow:none}
+  /* 触屏没有 mousedown 拖拽，窄屏不提供调宽 */
+  .toc-resize{display:none}
+  /* 窄屏标签名收窄，靠横向滚动容纳，不换行 */
+  .tab{max-width:14ch;padding-left:9px}
+}
+/* ---------- 打印 / 导出 PDF ----------
+   屏幕上这套布局是「整屏 flex + 各自滚动」，直接打印只会印出第一屏——
+   固定高度和 overflow 会把后面的内容整段裁掉。所以打印时要把整条链路
+   （html/body/.app/.panes/.pane-view/.pane-scroll）全部放平成自然高度的
+   普通文档流，再交给分页器去切页。这是「格式不乱」的前提，缺一环都不行。 */
+@media print{
+  @page{size:A4;margin:20mm 18mm}
+
+  html,body,.app,.panes,.pane,.pane-view,.pane-scroll{
+    height:auto!important;min-height:0!important;
+    overflow:visible!important;display:block!important;background:#fff!important;
+  }
+  /* 纸上只留正文，界面元素一律不印 */
+  .bar,.tabbar,.pane-edit,.split,.toc,.status,.toast,.code-tools,.img-handle,.img-size,.lightbox{display:none!important}
+
+  .doc{padding:0!important;font-size:11pt;line-height:1.7;color:#141413}
+  .doc h1{font-size:20pt}
+  .doc h2{font-size:15pt}
+  .doc h3{font-size:12.5pt}
+  .doc h4{font-size:11pt}
+
+  /* 代码块在屏幕上靠横向滚动，纸上滚不动，必须换行，否则右侧直接被裁 */
+  .doc pre{white-space:pre-wrap;word-wrap:break-word;overflow:visible!important}
+  .tablewrap{overflow:visible!important}
+
+  /* 分页规则：标题不许掉在页底与正文分家；表格、代码块、引用、图片不许被腰斩 */
+  .doc h1,.doc h2,.doc h3,.doc h4{break-after:avoid;page-break-after:avoid}
+  .doc pre,.doc blockquote,.doc table,.doc img,.mermaid-box{break-inside:avoid;page-break-inside:avoid}
+  .doc tr,.doc li{break-inside:avoid;page-break-inside:avoid}
+  /* 表格跨页时重复表头，否则第二页起就看不出每列是什么 */
+  .doc thead{display:table-header-group}
+  .doc p,.doc li{orphans:3;widows:3}
+
+  /* 代码块灰底、表头分隔线算「背景」，打印默认丢弃，强制保留 */
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+}

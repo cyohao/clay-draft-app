@@ -1,0 +1,207 @@
+/* ============================================================
+   tokens.css —— 字体归并与调色板
+   主题共四处定义，全部集中在本文件，改色时四处必须同步：
+   裸 :root / @media dark / [data-theme=dark] / @media print
+   ============================================================ */
+
+/* ============================================================
+   注意：全局西文现已改用 Times New Roman（见下方 --sans / --sans-label
+   / --serif）。下面 Styrene A 与 Tiempos Text 的归并声明当前未被引用，
+   保留是为了随时可切回——删掉这两组即可彻底移除。
+   ============================================================ */
+
+/* ============================================================
+   本机字体归并
+   Windows 把超过 4 字面的家族拆成子家族（Styrene A Web / …Med /
+   …Light / …Thin / …Black），直接用 font-weight 取不到 Medium。
+   下面用 local() 把子家族重新并回一个逻辑家族，每个字重都落到
+   真字面，不触发浏览器的合成假粗 / 假斜。
+   ============================================================ */
+
+/* Styrene A Web —— 正文与界面 */
+@font-face{font-family:"Styrene A";font-weight:100;font-style:normal;font-display:swap;
+  src:local("StyreneAWeb-Thin"),local("Styrene A Web Thin")}
+@font-face{font-family:"Styrene A";font-weight:100;font-style:italic;font-display:swap;
+  src:local("StyreneAWeb-ThinItalic"),local("Styrene A Web Thin Italic")}
+@font-face{font-family:"Styrene A";font-weight:300;font-style:normal;font-display:swap;
+  src:local("StyreneAWeb-Light"),local("Styrene A Web Light")}
+@font-face{font-family:"Styrene A";font-weight:300;font-style:italic;font-display:swap;
+  src:local("StyreneAWeb-LightItalic"),local("Styrene A Web Light Italic")}
+@font-face{font-family:"Styrene A";font-weight:400;font-style:normal;font-display:swap;
+  src:local("StyreneAWeb-Regular"),local("Styrene A Web")}
+@font-face{font-family:"Styrene A";font-weight:400;font-style:italic;font-display:swap;
+  src:local("StyreneAWeb-Italic"),local("Styrene A Web Italic")}
+@font-face{font-family:"Styrene A";font-weight:500;font-style:normal;font-display:swap;
+  src:local("StyreneAWeb-Medium"),local("Styrene A Web Med")}
+@font-face{font-family:"Styrene A";font-weight:500;font-style:italic;font-display:swap;
+  src:local("StyreneAWeb-MediumItalic"),local("Styrene A Web Med Italic")}
+@font-face{font-family:"Styrene A";font-weight:700;font-style:normal;font-display:swap;
+  src:local("StyreneAWeb-Bold"),local("Styrene A Web Bold")}
+@font-face{font-family:"Styrene A";font-weight:700;font-style:italic;font-display:swap;
+  src:local("StyreneAWeb-BoldItalic"),local("Styrene A Web Bold Italic")}
+@font-face{font-family:"Styrene A";font-weight:900;font-style:normal;font-display:swap;
+  src:local("StyreneAWeb-Black"),local("Styrene A Web Black")}
+
+/* Tiempos Text —— 衬线标题。本机无常规斜体，
+   故把 italic 400–600 指到真实的 SemiboldItalic，避免合成假斜。 */
+@font-face{font-family:"Tiempos Text";font-weight:400;font-style:normal;font-display:swap;
+  src:local("TiemposText-Regular"),local("Tiempos Text Regular")}
+@font-face{font-family:"Tiempos Text";font-weight:500;font-style:normal;font-display:swap;
+  src:local("TiemposText-Medium"),local("Tiempos Text Medium")}
+@font-face{font-family:"Tiempos Text";font-weight:700;font-style:normal;font-display:swap;
+  src:local("TiemposText-Bold"),local("Tiempos Text Bold")}
+@font-face{font-family:"Tiempos Text";font-weight:400 600;font-style:italic;font-display:swap;
+  src:local("TiemposText-SemiboldItalic"),local("Tiempos Text Semibold Italic")}
+@font-face{font-family:"Tiempos Text";font-weight:700;font-style:italic;font-display:swap;
+  src:local("TiemposText-BoldItalic"),local("Tiempos Text Bold Italic")}
+
+/* 汽水音乐黑 简 —— 小标题与标签的中文。
+   同样是子家族拆分：字重被塞进 Family 名，Subfamily 一律写 Regular，
+   且中文名只挂在 zh-CN 语言项下，GDI+ 对外只报英文名，故三种写法都列上。
+   本体只有 Light / Medium 两档，无 Regular、无 Bold。故把字重区间铺开：
+   300–400 → Light（承接正文默认的 400）
+   500–700 → Medium（承接小标题的 500，以及 <strong> 的 700）
+   这样 700 也命中真字面，浏览器不会去合成假粗——汉字的合成假粗会让
+   笔画糊在一起，比缺一档粗体难看得多。正文与加粗的轻重对比，
+   由 Light 与 Medium 这两个真字面本身拉开。 */
+@font-face{font-family:"QiShui Hei";font-weight:300 400;font-style:normal;font-display:swap;
+  src:local("QSYinYueHeiS Light"),local("QSYINYUEHEIS-L--GB1-0"),local("汽水音乐黑 简 Light")}
+@font-face{font-family:"QiShui Hei";font-weight:500 700;font-style:normal;font-display:swap;
+  src:local("QSYinYueHeiS Medium"),local("QSYINYUEHEIS-M--GB1-0"),local("汽水音乐黑 简 Medium")}
+
+/* 方正兰亭黑 —— 正文与界面的中文。
+   方正的命名极不统一：同一款会有 GBK / GB、简体 / 繁体、
+   中文名 / 英文名 / PostScript 名多套写法，且各字重多半是独立文件，
+   故每档都把常见变体列全。未安装的档位 local() 会全部落空，
+   该 @font-face 自动失效，浏览器退到同家族已声明的其他字重，不报错。
+   若只装了单一字重，700 会由浏览器合成假粗——建议装全家族。 */
+@font-face{font-family:"FZLanTingHei";font-weight:300;font-style:normal;font-display:swap;
+  src:local("FZLanTingHei-L-GBK"),local("FZLanTingHeiS-L-GB"),
+      local("方正兰亭纤黑_GBK"),local("方正兰亭黑_GBK_L")}
+@font-face{font-family:"FZLanTingHei";font-weight:400;font-style:normal;font-display:swap;
+  src:local("FZLanTingHei-R-GBK"),local("FZLanTingHeiS-R-GB"),
+      local("FZLTHJW--GB1-0"),local("FZLTHK--GBK1-0"),
+      local("方正兰亭黑_GBK"),local("方正兰亭黑简体"),local("方正兰亭黑")}
+@font-face{font-family:"FZLanTingHei";font-weight:500;font-style:normal;font-display:swap;
+  src:local("FZLanTingHei-M-GBK"),local("FZLanTingHeiS-M-GB"),
+      local("方正兰亭准黑_GBK"),local("方正兰亭中黑_GBK")}
+@font-face{font-family:"FZLanTingHei";font-weight:700;font-style:normal;font-display:swap;
+  src:local("FZLanTingHei-B-GBK"),local("FZLanTingHeiS-B-GB"),
+      local("FZLanTingHei-DB-GBK"),local("FZLanTingHeiS-DB-GB"),
+      local("方正兰亭粗黑_GBK"),local("方正兰亭大黑_GBK")}
+
+/* Noto Serif SC —— Tiempos 不含汉字，标题中文由它承接 */
+@font-face{font-family:"Noto Serif SC HAN";font-weight:400;font-style:normal;font-display:swap;
+  src:local("NotoSerifSC-Regular"),local("Noto Serif SC")}
+@font-face{font-family:"Noto Serif SC HAN";font-weight:500;font-style:normal;font-display:swap;
+  src:local("NotoSerifSC-Medium"),local("Noto Serif SC Medium")}
+@font-face{font-family:"Noto Serif SC HAN";font-weight:600;font-style:normal;font-display:swap;
+  src:local("NotoSerifSC-SemiBold"),local("Noto Serif SC SemiBold")}
+@font-face{font-family:"Noto Serif SC HAN";font-weight:700;font-style:normal;font-display:swap;
+  src:local("NotoSerifSC-Bold"),local("Noto Serif SC Bold")}
+
+:root{
+  --paper:#FAF9F5;
+  --surface:#FFFFFF;
+  --rail:#F0EEE6;
+  --ink:#141413;
+  --ink-soft:#6F6C63;
+  --ink-faint:#9A968B;
+  --clay:#D97757;
+  --line:#E6E3D9;
+  --line-soft:#EFEDE4;
+  --focus:#C2643F;
+  /* 行内代码底色单独开 token，不复用 --rail——后者同时是工具栏 hover 底、
+     目录项 hover 底和代码块底，调深一处会牵连一片 */
+  --code-bg:#E5E0D2;
+  /* 语法高亮。刻意压在低饱和区间（S 30-45% / L 35-50%）：
+     代码块整片都是彩色，饱和度一高就成了圣诞树，和正文抢注意力。
+     关键字走 clay 的暗化版，保持和品牌色同源。 */
+  --syn-comment:#9A968B;
+  --syn-key:#9B4B2E;
+  --syn-str:#5C7355;
+  --syn-num:#8A6A28;
+  --syn-fn:#3F5E7A;
+  --syn-prop:#6B4E7D;
+  --syn-op:#6F6C63;
+  /* 划选底色。不定义 ::selection 的话，Chromium 会拿 Windows 的个性化
+     强调色来涂，用户把强调色设成橙系时选中就是一片橙。这里锁成中性暖灰，
+     跟主题走，不受系统摆布。 */
+  --sel:#CFCABB;
+  /* 全局西文统一为 Times New Roman；三个 token 的差别只在中文侧落点。
+     字体栈靠逐字符穿透工作：TNR 不含汉字，汉字自动让位给其后的中文字体。
+     （token 名保留 sans/serif 是为了不动下游规则，现已仅表示中文侧角色） */
+  /* 西文 Times New Roman，中文微软雅黑。
+     注：Styrene A / Tiempos Text 均为纯拉丁字体（cmap 实测 CJK 覆盖为 0），
+     无法承担中文，中文侧只能由中文字体承接。 */
+  --sans:"Times New Roman","FZLanTingHei","Microsoft YaHei UI","Microsoft YaHei",Times,serif;
+  --sans-label:var(--sans);
+  --serif:"Times New Roman","Noto Serif SC HAN","Songti SC","SimSun",Times,Georgia,serif;
+  /* 源码区保持等宽——TNR 是比例字体，用在源码栏会破坏对齐 */
+  --mono:"JetBrains Mono","Cascadia Mono",Consolas,"Microsoft YaHei",ui-monospace,monospace;
+  --split:46%;
+  --toc-w:236px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#1B1A18;
+    --surface:#232220;
+    --rail:#1F1E1C;
+    --ink:#F2F0E9;
+    --ink-soft:#A8A499;
+    --ink-faint:#78746A;
+    --clay:#E18B6C;
+    --line:#37342F;
+    --line-soft:#2B2926;
+    --focus:#E18B6C;
+    --code-bg:#171614;
+    --sel:#3A3733;
+    --syn-comment:#78746A;
+    --syn-key:#E1916D;
+    --syn-str:#9CB88F;
+    --syn-num:#D4B078;
+    --syn-fn:#8FB0CC;
+    --syn-prop:#B79CC4;
+    --syn-op:#A8A499;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#1B1A18;
+  --surface:#232220;
+  --rail:#1F1E1C;
+  --ink:#F2F0E9;
+  --ink-soft:#A8A499;
+  --ink-faint:#78746A;
+  --clay:#E18B6C;
+  --line:#37342F;
+  --line-soft:#2B2926;
+  --focus:#E18B6C;
+  --code-bg:#171614;
+  --sel:#3A3733;
+  --syn-comment:#78746A;
+  --syn-key:#E1916D;
+  --syn-str:#9CB88F;
+  --syn-num:#D4B078;
+  --syn-fn:#8FB0CC;
+  --syn-prop:#B79CC4;
+  --syn-op:#A8A499;
+}
+
+*{box-sizing:border-box}
+/* 划选：只设底色不改字色，保证任何主题下文字都还看得清 */
+
+/* ---------- 第四处：打印态调色板 ----------
+   从原 @media print 版面块里提到这里，与上面三处相邻，改色时不会再漏。
+   版面规则仍在 media.css。 */
+@media print{
+  /* 打印一律走浅色：深色主题直接印是满页黑底，费墨且正文发灰。
+     三种主题状态都要覆盖，否则带 data-theme 标记时漏网。 */
+  :root,:root[data-theme="dark"],:root[data-theme="light"]{
+    --paper:#FFFFFF;--surface:#FFFFFF;--rail:#F4F2EC;
+    --ink:#141413;--ink-soft:#4A4843;--ink-faint:#6F6C63;
+    --clay:#C2643F;--line:#D9D5CA;--line-soft:#E6E3D9;--focus:#C2643F;
+    --code-bg:#E5E0D2;--sel:#CFCABB;
+    --syn-comment:#9A968B;--syn-key:#9B4B2E;--syn-str:#5C7355;
+    --syn-num:#8A6A28;--syn-fn:#3F5E7A;--syn-prop:#6B4E7D;--syn-op:#6F6C63;
+  }
+}

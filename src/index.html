@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clay Draft</title>
+<link rel="stylesheet" href="./css/tokens.css">
+<link rel="stylesheet" href="./css/app.css">
+<link rel="stylesheet" href="./css/doc.css">
+<link rel="stylesheet" href="./css/media.css">
+<link rel="preload" as="script" href="./vendor/marked.min.js">
+<link rel="preload" as="script" href="./vendor/prism.min.js">
+
+</head>
+<body>
+<div class="app" id="app">
+  <header class="bar">
+    <div class="brand"><b>Clay</b><span>Draft</span></div>
+
+    <div class="panetoggles" role="group" aria-label="窗格显示">
+      <button class="pt" id="ptEdit" type="button" aria-pressed="true" title="显示 / 隐藏编辑区">编辑</button>
+      <button class="pt" id="ptView" type="button" aria-pressed="true" title="显示 / 隐藏预览区">预览</button>
+    </div>
+
+    <div class="tools">
+      <button class="tb" data-wrap="**" title="加粗  Ctrl+B"><b>B</b></button>
+      <button class="tb" data-wrap="*" title="斜体  Ctrl+I"><i>I</i></button>
+      <button class="tb mono" data-wrap="`" title="行内代码">&lt;/&gt;</button>
+      <span class="sep"></span>
+      <button class="tb" data-line="# " title="一级标题">H1</button>
+      <button class="tb" data-line="## " title="二级标题">H2</button>
+      <button class="tb" data-line="### " title="三级标题">H3</button>
+      <span class="sep"></span>
+      <button class="tb" data-line="- " title="无序列表">列表</button>
+      <button class="tb" data-line="1. " title="有序列表">编号</button>
+      <button class="tb" data-line="&gt; " title="引用">引用</button>
+      <span class="sep"></span>
+      <button class="tb" data-insert="link" title="链接  Ctrl+K">链接</button>
+      <button class="tb" data-insert="table" title="插入表格">表格</button>
+      <button class="tb" data-insert="rule" title="分割线">分割线</button>
+      <button class="tb" id="insertImg" title="插入图片">图片</button>
+    </div>
+
+    <div class="filegroup">
+      <button class="act" id="fileOpen" title="打开文件  Ctrl+O">打开</button>
+      <button class="act" id="fileSave" title="保存  Ctrl+S">保存</button>
+      <button class="act" id="fileSaveAs" title="另存为  Ctrl+Shift+S">另存为</button>
+      <button class="act" id="filePdf" title="导出 PDF">导出 PDF</button>
+      <button class="act" id="fileWord" title="导出 Word（.docx）">导出 Word</button>
+    </div>
+
+    <div class="spacer"></div>
+    <button class="act" id="copyMd">复制 Markdown</button>
+    <button class="act icon" id="theme" title="切换深浅色" aria-label="切换深浅色">&#9689;</button>
+  </header>
+
+  <div class="tabbar" id="tabbar">
+    <div class="tabs" id="tabs" role="tablist" aria-label="已打开的文档"></div>
+    <button class="tab-new" id="tabNew" type="button" title="新建标签  Ctrl+T" aria-label="新建标签">+</button>
+  </div>
+
+  <main class="panes" id="panes">
+    <section class="pane pane-edit" id="paneEdit">
+      <textarea id="src" spellcheck="false" placeholder="在此写作..."></textarea>
+    </section>
+    <div class="split" id="split" role="separator" aria-orientation="vertical" title="拖动调整宽度"></div>
+    <section class="pane pane-view" id="paneViewWrap">
+      <aside class="toc" id="toc">
+        <button class="toc-head" id="tocToggle" aria-expanded="true" aria-controls="tocBody" title="展开 / 收起目录">
+          <span class="toc-chev" aria-hidden="true"><svg viewBox="0 0 14 14" width="14" height="14"><path d="M5 2.5 L10 7 L5 11.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <span class="toc-label">目录</span>
+          <span class="toc-count" id="tocCount">0</span>
+        </button>
+        <nav class="toc-body" id="tocBody" aria-label="文档目录"></nav>
+        <div class="toc-resize" id="tocResize" role="separator" aria-orientation="vertical" title="拖动调整目录宽度"></div>
+      </aside>
+      <div class="pane-scroll" id="paneView">
+        <article class="doc" id="preview"></article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="status">
+    <span class="item file" id="fileInfo" title="当前文件">未命名</span>
+    <span class="item" id="encInfo">UTF-8 · LF</span>
+    <span class="item">中文 <b id="cCjk">0</b> 字</span>
+    <span class="item">英文 <b id="cEn">0</b> 词</span>
+    <span class="item">计入字数 <span class="count" id="cTotal">0</span></span>
+    <span class="item">段落 <b id="cPara">0</b></span>
+    <span class="item">行 <b id="cLine">0</b></span>
+    <span class="grow"></span>
+    <span class="item" id="fontState" title="检测本机字体是否真正生效">字体检测中</span>
+    <span class="item saved"><span class="dot" id="dot"></span><span id="savedAt">未保存</span></span>
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="./vendor/marked.min.js"></script>
+<script src="./vendor/prism.min.js"></script>
+<!-- core.js 必须最先加载：它建立 window.CD，其余模块从中取共享符号。
+     模块之间互不依赖，四行的顺序可以任意调换。 -->
+<script src="./js/core.js"></script>
+<script src="./js/tabs.js"></script>
+<script src="./js/mermaid.js"></script>
+<script src="./js/toc.js"></script>
+<script src="./js/images.js"></script>
+<script src="./js/file.js"></script>
+<script src="./js/word.js"></script>
+</body>
+</html>

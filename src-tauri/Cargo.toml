@@ -1,0 +1,53 @@
+[package]
+name = "clay-draft-app"
+version = "1.0.0"
+description = "Clay Draft — Markdown editor"
+authors = ["you"]
+edition = "2021"
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "clay_draft_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# 中文 .md 常见 GBK/GB18030，需按字节探测编码，不能一律当 UTF-8 读
+encoding_rs = "0.8"
+chardetng = "0.1"
+# 图片以本地文件存放，读给预览时要转 data URL（webview 解析不了相对路径）
+base64 = "0.22"
+
+# 导出 .docx：docx 就是一包 XML 的 zip，这两个用来写那个 zip。
+# 两者本来就在 Cargo.lock 里（tauri 传递引入），提为直接依赖不触发新下载——
+# 本机 static.crates.io 不通，能不新增下载就别新增。
+# 没用 zip crate 是因为那是新下载，而这里只写不读，src/docx.rs 里几十行就够。
+flate2 = "1"
+crc32fast = "1"
+# 双击第二个 .md 时不另起进程，把路径转给已在运行的窗口开成新标签。
+# 是个新下载（不在原来的 Cargo.lock 里），走 .cargo/config.toml 的镜像拿得到。
+tauri-plugin-single-instance = "2"
+
+# 导出 PDF 走 WebView2 的 ICoreWebView2_7::PrintToPdf。
+# 版本必须与 tauri 内部用的一致（见 Cargo.lock），否则两边的 COM 接口
+# 是不同类型，cast 过不去。
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.38"
+windows = { version = "0.61", features = ["Win32_Foundation"] }
+
+# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true
