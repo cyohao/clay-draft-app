@@ -46,7 +46,7 @@ Rust 侧的命令（`invoke_handler` 注册顺序即下表）：
 |---|---|
 | `read_doc` / `write_doc` | 编码探测与原样写回，见「文件读写约定」 |
 | `take_startup_file` | 双击 .md 时的启动参数，取走即清空 |
-| `export_pdf` | WebView2 的 `PrintToPdf`，直接落盘不弹打印框 |
+| `export_pdf` | WebView2 走 DevTools 协议 `Page.printToPDF`，带分级书签，直接落盘不弹打印框 |
 | `export_docx` | IR → OOXML → zip，见 `src/docx.rs` 与「导出 Word」 |
 | `save_image` / `import_image` | 粘贴的截图落盘 / 把已有图片拷进 assets |
 | `read_image` | 读成 data URL 给预览用 |
@@ -334,15 +334,29 @@ highlight.js 不能用：它的 npm 包里没有浏览器可用的 bundle，只�
 
 ## 导出 PDF
 
-走 WebView2 的 `ICoreWebView2_7::PrintToPdf`，选好路径直接落盘，不弹系统打印对话框。
-命令必须是 **async**：`PrintToPdf` 的完成回调在主线程跑，同步阻塞等结果必然死锁。
+走 WebView2 的 `CallDevToolsProtocolMethod("Page.printToPDF")`，选好路径直接落盘，不弹系统打印对话框。
+命令必须是 **async**：完成回调在主线程跑，同步阻塞等结果必然死锁。
+
+**为什么不用 `ICoreWebView2_7::PrintToPdf`**：它的 PrintSettings 没有生成书签的选项。
+CDP 的 `generateDocumentOutline` 按 h1–h6 生成**分级书签**（阅读器侧栏的可折叠目录树），
+它依赖 `generateTaggedPDF`，两个一起开。用 Edge headless 对 `src/index.html` 实测过：书签层级正确。
 
 版面完全由 `@media print` 决定。那套样式的要害是**把整条 flex 链路放平**
 （`html/body/.app/.panes/.pane-view/.pane-scroll` 全部 `height:auto` + `overflow:visible`），
 否则固定高度和 overflow 会让导出的 PDF 只有第一屏。其余分页规则：标题不与正文分家、
 表格跨页重复表头、代码块强制换行、深色主题强制转浅色。
 
-**页边距只在 `@page` 里设一次，`PrintSettings` 里故意不设**——两边各设一次会叠加成双倍。
+**排版跟预览一致**：`@media print` 里不再改字号、行距、标题层级，全部沿用 `doc.css`
+（CSS 的 px 是物理单位，15px 正文印出来就是 11.25pt）。别在 print 里另起一套——
+那正是之前「导出的 PDF 和预览长得不一样」的来源。只有调色板强制浅色是有意的差异。
+
+**页边距只在 `@page` 里设一次，CDP 参数里 margin 全给 0**，配 `preferCSSPageSize:true`。
+实测 `@page` 边距优先生效，不会印成无边距。
+
+**`@page` 必须自带 `background:#fff`。** 页边距那一圈不归文档画，默认填 WebView 的底色
+（`tauri.conf.json` 的 `backgroundColor` `#FAF9F5`），结果是正文白、四周米黄。
+Edge headless 的默认底色恰好是白的，所以在那边测不出来——要复现得先用
+`Emulation.setDefaultBackgroundColorOverride` 设成 `#FAF9F5`。
 
 ## 导出 Word
 
@@ -355,7 +369,7 @@ src.value ──marked.lexer──▶ js/word.js 组装 IR(JSON) ──invoke─
 **不要在 Rust 里重写 markdown 解析。** 预览用的就是 marked，重写一套必然分叉，
 GFM 表格、任务列表这些行为一对不上就成了「预览一个样、导出另一个样」。
 
-**版面参数以 `@media print` 为基准**（A4、20mm/18mm 边距、正文 11pt、H1 20pt / H2 15pt），
+**版面参数以 `@media print` 为基准**（A4、20mm/18mm 边距），字体与字号例外，见下表，
 集中在 `docx.rs` 的 `mod layout`。代码配色同理，`word.js` 从 CSSOM 实时读
 `@media print` 里的 `--syn-*`，不在 JS 里抄第二份——否则主题就多了第五处要同步的定义。
 
@@ -371,10 +385,15 @@ GFM 表格、任务列表这些行为一对不上就成了「预览一个样、�
 | 标题段前距 | h2 是 `2em`（30pt） | **12pt 起按级递减** | 2em 在 Word 里空得过分 |
 | 标题段后距 | h2 是 `.6em` + `.35em` 内距 | **各级统一 100 twip（5pt）** | 预览里标题下方有细边框和内距把空白「撑出结构」，Word 没那条线，同样数值读起来就是一片空荡 |
 | 表格边框 | 只有横线 | **六边全框** | 导出的多半要进正式文档，那边通行完整网格 |
+| 中文字体 | 微软雅黑，H1/H2 用 Noto Serif SC | **一律宋体**（标题也是） | 使用者要求，正式文档通行「宋体 + Times New Roman」。代码块仍是 Consolas + 新宋体 |
+| 正文字号 | 11.25pt（15px） | **小四 12pt**（`SZ_BODY = 24`） | 使用者要求。标题 20 / 15 / 14 / 12pt，H4–H6 与正文同号靠加粗区分，不得小于正文 |
+| 标题颜色 | h3 以下灰褐 | **全部纯黑 `000000`** | 使用者要求，标题用标准黑色，不带配色 |
+| 标题加粗 | h1/h2 衬线 500，不粗 | **H2 起加粗**，H1 不粗 | 使用者要求 H2 加粗 |
+| 段首缩进 | 无 | **正文段落首行空两字**（`firstLineChars=200`） | 使用者要求。只加在普通段落上，引用 / 列表 / 表格 / 代码 / 图片不缩进；不写进 Normal 样式，否则会漏进列表的悬挂缩进 |
 | 代码块底 | `padding` 直接给 | **套在单元格里靠 `tcMar`** | 见下 |
 
 `cargo test` 里 `line_spacing_is_single_everywhere`、`table_has_all_six_borders`、
-`code_block_gets_padding_from_a_cell` 就是拿来挡「改回去对齐」的。
+`code_block_gets_padding_from_a_cell`、`fonts_and_heading_colors_follow_the_brief` 就是拿来挡「改回去对齐」的。
 
 **标题的行距不能套正文的。** 超出字号的那部分行距，Word 大半摊在文字下方——
 看起来就是「标题下面空一大块」，字号越大越明显。这里曾经全填 1.7，是这个毛病的来源；
@@ -517,7 +536,8 @@ Tauri 2 的 ACL（`capabilities/default.json`）写错时**编译期不报错、
 
 下面这些**只能实机点**，headless 浏览器和单测都覆盖不到，改相关代码后要过一遍：
 
-- 导出 PDF -> 点按钮能选路径并真的落盘；开深色主题再导一次，PDF 应是浅色
+- 导出 PDF -> 点按钮能选路径并真的落盘；阅读器侧栏有分级书签；字号行距与预览一致；
+  开深色主题再导一次，PDF 应是浅色
 - 粘贴截图 -> Ctrl+V 后图片出现在预览里，且 `<文档名>.assets/` 下确实多了文件
 - 图片显示 -> **务必用中文目录的文档验**，纯英文路径不会触发百分号编码那个坑
 - 另存为迁移 -> 带图的文档另存成别的名字，新文件里的图仍然显示

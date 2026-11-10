@@ -109,63 +109,71 @@ fn write_doc(path: String, text: String, encoding: String, eol: String) -> Resul
     Ok(())
 }
 
-/// 导出 PDF：走 WebView2 的 ICoreWebView2_7::PrintToPdf，把当前页面直接渲染成
+/// 导出 PDF：走 WebView2 的 DevTools 协议 `Page.printToPDF`，把当前页面直接渲染成
 /// 文件，不弹系统打印对话框。
 ///
-/// 版面完全由前端 `@media print` 那套样式决定——纸张尺寸这里给 A4 与 CSS 对齐，
-/// 但**页边距不在这里设**：CSS 的 `@page` 已经设过一次，两边各设一次会叠加成
-/// 双倍边距。单一来源才不会乱。
+/// 不用 `ICoreWebView2_7::PrintToPdf` 是因为它的 PrintSettings 没有「生成书签」这一项；
+/// CDP 的 `generateDocumentOutline` 会按 h1–h6 生成**分级书签**（PDF 阅读器侧栏里那棵
+/// 可折叠的目录树），它依赖带标签的 PDF，所以 `generateTaggedPDF` 一并打开。
 ///
-/// PrintToPdf 是异步的，完成回调在主线程跑。所以这里必须是 async command：
-/// 同步阻塞等结果会把主线程占住，回调永远轮不到，直接死锁。
+/// 版面完全由前端 `@media print` 那套样式决定（`preferCSSPageSize`）。纸张尺寸给 A4
+/// 与 CSS 对齐，**页边距这里给 0**：CSS 的 `@page` 已经设过一次，单一来源才不会乱。
+/// （实测 CSS 的 @page 边距优先生效，这里给 0 也不会印成无边距。）
+///
+/// 回调在主线程跑，所以这里必须是 async command：同步阻塞等结果会把主线程占住，
+/// 回调永远轮不到，直接死锁。回调里只把 JSON 原样送出来，base64 解码和写盘
+/// 放回这边做，不占主线程。
 #[cfg(windows)]
 #[tauri::command]
 async fn export_pdf(window: tauri::WebviewWindow, path: String) -> Result<(), String> {
     use std::sync::{Arc, Mutex};
-    use webview2_com::Microsoft::Web::WebView2::Win32::{
-        ICoreWebView2Environment6, ICoreWebView2_7,
-    };
-    use webview2_com::PrintToPdfCompletedHandler;
-    use windows::core::{Interface, PCWSTR};
+    use webview2_com::CallDevToolsProtocolMethodCompletedHandler;
+    use windows::core::{HSTRING, PCWSTR};
 
-    let (tx, mut rx) = tauri::async_runtime::channel::<Result<(), String>>(1);
+    let (tx, mut rx) = tauri::async_runtime::channel::<Result<String, String>>(1);
     let tx = Arc::new(Mutex::new(Some(tx)));
     let tx_err = tx.clone();
 
+    let params = serde_json::json!({
+        "paperWidth": 8.27,          // A4，单位英寸
+        "paperHeight": 11.69,
+        "marginTop": 0, "marginBottom": 0, "marginLeft": 0, "marginRight": 0,
+        "preferCSSPageSize": true,
+        // 代码块灰底、表头分隔线都算「背景」，不开这项会被丢掉
+        "printBackground": true,
+        // 浏览器默认页眉页脚是 URL 和日期，正式材料里不该出现
+        "displayHeaderFooter": false,
+        "generateTaggedPDF": true,
+        "generateDocumentOutline": true,
+    })
+    .to_string();
+
     window
         .with_webview(move |webview| {
-            // 路径转成以 NUL 结尾的 UTF-16。wide 必须活到 PrintToPdf 返回，
-            // 所以留在本作用域里，别提前 drop。
-            let wide: Vec<u16> = path.encode_utf16().chain(std::iter::once(0)).collect();
+            // HSTRING 必须活到调用返回，留在本作用域里
+            let method = HSTRING::from("Page.printToPDF");
+            let params = HSTRING::from(params.as_str());
 
             let run = || -> windows::core::Result<()> {
                 unsafe {
                     let core = webview.controller().CoreWebView2()?;
-                    let wv7: ICoreWebView2_7 = core.cast()?;
-                    let env6: ICoreWebView2Environment6 = webview.environment().cast()?;
-                    let st = env6.CreatePrintSettings()?;
-
-                    // A4，单位是英寸
-                    st.SetPageWidth(8.27)?;
-                    st.SetPageHeight(11.69)?;
-                    // 代码块灰底、表头分隔线都算「背景」，不开这项会被丢掉
-                    st.SetShouldPrintBackgrounds(true)?;
-                    // 浏览器默认页眉页脚是 URL 和日期，软著/投标材料里不该出现
-                    st.SetShouldPrintHeaderAndFooter(false)?;
-
                     let tx_ok = tx.clone();
-                    let handler = PrintToPdfCompletedHandler::create(Box::new(move |hr, ok| {
-                        let r = if ok {
+                    let handler =
+                        CallDevToolsProtocolMethodCompletedHandler::create(Box::new(move |hr, json| {
+                            let r = match hr {
+                                Ok(()) => Ok(json),
+                                Err(e) => Err(format!("WebView2 生成 PDF 失败：{e}")),
+                            };
+                            if let Some(t) = tx_ok.lock().unwrap().take() {
+                                let _ = t.try_send(r);
+                            }
                             Ok(())
-                        } else {
-                            Err(format!("WebView2 写入 PDF 失败（HRESULT {hr:?}）"))
-                        };
-                        if let Some(t) = tx_ok.lock().unwrap().take() {
-                            let _ = t.try_send(r);
-                        }
-                        Ok(())
-                    }));
-                    wv7.PrintToPdf(PCWSTR(wide.as_ptr()), &st, &handler)?;
+                        }));
+                    core.CallDevToolsProtocolMethod(
+                        PCWSTR(method.as_ptr()),
+                        PCWSTR(params.as_ptr()),
+                        &handler,
+                    )?;
                 }
                 Ok(())
             };
@@ -178,7 +186,24 @@ async fn export_pdf(window: tauri::WebviewWindow, path: String) -> Result<(), St
         })
         .map_err(|e| format!("取不到 WebView2 句柄：{e}"))?;
 
-    rx.recv().await.unwrap_or(Err("导出没有返回结果".to_string()))
+    let json = rx.recv().await.unwrap_or(Err("导出没有返回结果".to_string()))?;
+    write_cdp_pdf(&json, &path)
+}
+
+/// 把 `Page.printToPDF` 返回的 `{"data":"<base64>"}` 解出来写盘。
+/// 单独拎出来是为了能在非 Windows 上单测。
+fn write_cdp_pdf(json: &str, path: &str) -> Result<(), String> {
+    use base64::Engine;
+    let v: serde_json::Value =
+        serde_json::from_str(json).map_err(|e| format!("PDF 返回结果解析失败：{e}"))?;
+    let b64 = v
+        .get("data")
+        .and_then(|d| d.as_str())
+        .ok_or_else(|| "PDF 返回结果里没有数据".to_string())?;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(b64)
+        .map_err(|e| format!("PDF 数据解码失败：{e}"))?;
+    fs::write(path, bytes).map_err(|e| format!("写入 PDF 失败：{e}"))
 }
 
 /// 非 Windows 平台没有 WebView2，本项目只面向 Windows，这里留个明确的报错，
@@ -400,6 +425,19 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cdp_pdf_payload_is_decoded_to_disk() {
+        let dir = std::env::temp_dir().join("clay_pdf_测试");
+        fs::create_dir_all(&dir).unwrap();
+        let out = dir.join("导出.pdf");
+        // "%PDF-1.4" 的 base64
+        write_cdp_pdf(r#"{"data":"JVBERi0xLjQ="}"#, out.to_str().unwrap()).unwrap();
+        assert_eq!(fs::read(&out).unwrap(), b"%PDF-1.4");
+        // 没有 data 字段要报错，不能写出一个空文件冒充成功
+        assert!(write_cdp_pdf(r#"{"stream":"x"}"#, out.to_str().unwrap()).is_err());
+        let _ = fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn assets_dir_follows_doc_name() {

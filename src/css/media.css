@@ -26,7 +26,9 @@
    （html/body/.app/.panes/.pane-view/.pane-scroll）全部放平成自然高度的
    普通文档流，再交给分页器去切页。这是「格式不乱」的前提，缺一环都不行。 */
 @media print{
-  @page{size:A4;margin:20mm 18mm}
+  /* 页边距那一圈不归文档画，默认填的是 WebView 的底色（tauri.conf.json 的
+     backgroundColor #FAF9F5），于是正文白、四周米黄。@page 自己给底色才统一。 */
+  @page{size:A4;margin:20mm 18mm;background:#fff}
 
   html,body,.app,.panes,.pane,.pane-view,.pane-scroll{
     height:auto!important;min-height:0!important;
@@ -35,11 +37,11 @@
   /* 纸上只留正文，界面元素一律不印 */
   .bar,.tabbar,.pane-edit,.split,.toc,.status,.toast,.code-tools,.img-handle,.img-size,.lightbox{display:none!important}
 
-  .doc{padding:0!important;font-size:11pt;line-height:1.7;color:#141413}
-  .doc h1{font-size:20pt}
-  .doc h2{font-size:15pt}
-  .doc h3{font-size:12.5pt}
-  .doc h4{font-size:11pt}
+  /* 排版（字号、行距、标题层级、段距）一律沿用预览的 doc.css，这里不再另起一套——
+     PDF 要和预览长得一样。这里只去掉屏幕专用的内边距（底部那 60vh 是给滚动留的），
+     纸面的留白交给 @page。CSS 的 px 是物理单位（1px = 1/96 英寸），
+     预览 15px 正文落到纸上就是 11.25pt，不需要换算。 */
+  .doc{padding:0!important}
 
   /* 代码块在屏幕上靠横向滚动，纸上滚不动，必须换行，否则右侧直接被裁 */
   .doc pre{white-space:pre-wrap;word-wrap:break-word;overflow:visible!important}

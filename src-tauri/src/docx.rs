@@ -134,9 +134,13 @@ mod layout {
     /// 版心宽度，表格与图片按它约束
     pub const CONTENT_W: u32 = PAGE_W - MAR_H * 2;
 
-    /// w:sz 的单位是半磅。正文 11pt，标题 20/15/12.5/11pt，代码 9.5pt
-    pub const SZ_BODY: u32 = 22;
-    pub const SZ_H: [u32; 6] = [40, 30, 25, 22, 22, 22];
+    /// w:sz 的单位是半磅。正文**小四（12pt）**，代码 9.5pt。
+    ///
+    /// **正文有意不跟 `@media print` 的 11pt**：按使用者要求定为小四，这是中文公文 /
+    /// 技术文档的通行正文字号。标题 20 / 15（小三）/ 14（四号）/ 12pt，
+    /// H4–H6 与正文同为小四，靠加粗区分——不能比正文还小。
+    pub const SZ_BODY: u32 = 24;
+    pub const SZ_H: [u32; 6] = [40, 30, 28, 24, 24, 24];
     pub const SZ_CODE: u32 = 19;
 
     /// 正文行距，单倍。w:line 在 lineRule=auto 下以 240 为单倍行距。
@@ -154,12 +158,16 @@ mod layout {
     /// 标题基本都是一两行，单倍不会挤，也不需要靠行距去拉层次——层次由字号和段前距给。
     pub const LINE_H: [u32; 6] = [240, 240, 240, 240, 240, 240];
 
-    /// 西文一律 Times New Roman；中文按角色分派，与 --sans / --serif / --mono 对应。
-    /// 代码的中文用新宋体：Consolas 不含汉字，而新宋体是等宽的，
-    /// 用微软雅黑会让含中文注释的代码列错开。
+    /// 西文一律 Times New Roman，中文（正文与各级标题）一律宋体。
+    ///
+    /// **有意不跟预览的字体**：预览是微软雅黑、H1/H2 用 Noto Serif SC，那是屏幕上的
+    /// 观感；Word 导出按使用者要求走正式文档的通行搭配「宋体 + Times New Roman」。
+    /// 写中文名「宋体」而不是 SimSun：中文版 Word 自己存盘就是这么写的，两者都认。
+    ///
+    /// 代码不在此列，仍是 Consolas + 新宋体：Consolas 不含汉字，而新宋体是等宽的，
+    /// 用比例字体会让含中文注释的代码列错开。
     pub const F_ASCII: &str = "Times New Roman";
-    pub const F_CJK: &str = "Microsoft YaHei";
-    pub const F_CJK_SERIF: &str = "Noto Serif SC";
+    pub const F_CJK: &str = "宋体";
     pub const F_MONO: &str = "Consolas";
     pub const F_MONO_CJK: &str = "NSimSun";
 
@@ -177,6 +185,9 @@ mod layout {
     /// 取自 @media print 的调色板
     pub const C_INK: &str = "141413";
     pub const C_INK_SOFT: &str = "4A4843";
+    /// 各级标题一律纯黑。**有意不跟预览**（预览 h3 以下是灰褐的 ink-soft）：
+    /// 按使用者要求，Word 里的标题用标准黑色，不带配色。
+    pub const C_HEADING: &str = "000000";
     pub const C_CLAY: &str = "C2643F";
     pub const C_LINE: &str = "D9D5CA";
     pub const C_CODE_BG: &str = "E5E0D2";
@@ -419,10 +430,19 @@ impl Builder {
             }
             Block::Para { runs } => {
                 let inner = self.runs(runs, L::SZ_BODY, false);
+                // 正文段首空两字（中文排版惯例）。只加在普通正文段落上：
+                // 引用、列表、表格、代码、图片各走各的分支，不受影响。
+                // 不写进 Normal 样式——w:ind 按属性逐个继承，firstLine 会漏进列表的
+                // 悬挂缩进里，把序号和文字的对齐搅乱。
                 let ppr = if self.in_quote {
-                    r#"<w:pPr><w:pStyle w:val="Quote"/></w:pPr>"#
+                    r#"<w:pPr><w:pStyle w:val="Quote"/></w:pPr>"#.to_string()
                 } else {
-                    ""
+                    // firstLineChars 以「百分之一字符」计，200 = 两个字，随字号走；
+                    // firstLine 是给不认 *Chars 的阅读器的兜底（twip）
+                    format!(
+                        r#"<w:pPr><w:ind w:firstLineChars="200" w:firstLine="{}"/></w:pPr>"#,
+                        L::SZ_BODY * 20
+                    )
                 };
                 self.body.push_str(&format!("<w:p>{ppr}{inner}</w:p>"));
             }
@@ -697,14 +717,14 @@ fn styles() -> String {
         (160, 100),
     ];
     for lv in 1..=6usize {
-        let cjk = if lv <= 2 { L::F_CJK_SERIF } else { L::F_CJK };
         let (before, after) = spacing[lv - 1];
-        let bold = if lv >= 3 { "<w:b/><w:bCs/>" } else { "" };
-        let color = if lv <= 2 { L::C_INK } else { L::C_INK_SOFT };
+        // 二级起加粗（使用者要求 H2 加粗；原先只有 H3 起才粗，因为预览 H2 是衬线 500）
+        let bold = if lv >= 2 { "<w:b/><w:bCs/>" } else { "" };
+        let color = L::C_HEADING;
         s.push_str(&format!(
             r#"<w:style w:type="paragraph" w:styleId="Heading{lv}"><w:name w:val="heading {lv}"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:keepLines/><w:spacing w:before="{before}" w:after="{after}" w:line="{line}" w:lineRule="auto"/><w:outlineLvl w:val="{ol}"/></w:pPr><w:rPr>{f}{bold}<w:color w:val="{color}"/><w:sz w:val="{sz}"/><w:szCs w:val="{sz}"/></w:rPr></w:style>"#,
             ol = lv - 1,
-            f = fonts_tag(L::F_ASCII, cjk),
+            f = fonts_tag(L::F_ASCII, L::F_CJK),
             sz = L::SZ_H[lv - 1],
             line = L::LINE_H[lv - 1]
         ));
@@ -900,7 +920,30 @@ mod tests {
         }
         // 中文必须走 eastAsia，只设 ascii 的话中文会掉回 Word 默认字体
         assert!(s.contains(&format!(r#"w:eastAsia="{}""#, L::F_CJK)));
-        assert!(s.contains(&format!(r#"w:eastAsia="{}""#, L::F_CJK_SERIF)));
+    }
+
+    #[test]
+    fn fonts_and_heading_colors_follow_the_brief() {
+        // 使用者定的：中文宋体、西文 Times New Roman、正文小四、标题纯黑。
+        // 有意不跟预览，谁「对齐预览」改回雅黑 / 11pt / 灰褐标题会被这条挡住。
+        let s = styles();
+        assert_eq!(L::F_CJK, "宋体");
+        assert_eq!(L::F_ASCII, "Times New Roman");
+        assert_eq!(L::SZ_BODY, 24, "正文应为小四 12pt");
+        assert!(L::SZ_H.iter().all(|&h| h >= L::SZ_BODY), "标题不得小于正文");
+        // 所有非代码样式的中文都是宋体：出现过的 eastAsia 只能是宋体或代码用的新宋体
+        for cap in s.split(r#"w:eastAsia=""#).skip(1) {
+            let f = &cap[..cap.find('"').unwrap()];
+            assert!(f == L::F_CJK || f == L::F_MONO_CJK, "出现了意外的中文字体 {f}");
+        }
+        for lv in 1..=6 {
+            let i = s.find(&format!(r#"w:styleId="Heading{lv}""#)).unwrap();
+            let blk = &s[i..i + s[i..].find("</w:style>").unwrap()];
+            assert!(blk.contains(r#"<w:color w:val="000000"/>"#), "Heading{lv} 不是纯黑");
+            if lv >= 2 {
+                assert!(blk.contains("<w:b/>"), "Heading{lv} 应加粗");
+            }
+        }
     }
 
     #[test]
@@ -980,6 +1023,27 @@ mod tests {
         // 无序项仍走 numbering.xml 的项目符号（项目符号没有递增问题）
         assert_eq!(b.body.matches(r#"<w:numId w:val="1"/>"#).count(), 1);
         assert!(!b.body.contains(r#"<w:numId w:val="2"/>"#), "不该再用编号型 numId");
+        // 段首缩进只给正文段落，不能漏进列表
+        assert!(!b.body.contains("firstLineChars"), "列表项不该有首行缩进");
+    }
+
+    #[test]
+    fn body_paragraphs_indent_two_chars_but_quotes_do_not() {
+        let mut b = Builder {
+            body: String::new(), links: vec![], img_ids: vec![],
+            draw_id: 0, rid_img_base: 2, in_quote: false,
+        };
+        b.block(&Block::Para { runs: vec![r("正文")] });
+        assert!(
+            b.body.contains(r#"<w:ind w:firstLineChars="200" w:firstLine="480"/>"#),
+            "正文段落应首行缩进两字：{}", b.body
+        );
+        let mut q = Builder {
+            body: String::new(), links: vec![], img_ids: vec![],
+            draw_id: 0, rid_img_base: 2, in_quote: true,
+        };
+        q.block(&Block::Para { runs: vec![r("引用")] });
+        assert!(!q.body.contains("firstLine"), "引用段落不缩进");
     }
 
     #[test]
